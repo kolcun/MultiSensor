@@ -14,44 +14,55 @@
 const char* ssid = WIFI_SSID;
 const char* password = WIFI_PASSWD;
 const char* overwatchTopic = MQTT_CLIENT_NAME"/overwatch";
-
-//int timerActive = 0;
 const long motionInterval = 1000 * 5;
-//int diningRoomPirState = 0;
-//unsigned long diningRoomMillis = 0;
 
 char charPayload[50];
-
 
 struct pirSensor {
   const char* topic;
   int timerActive;
   int pirState;
-  unsigned long sensorMillis; //rename to lastSeen ??
+  unsigned long lastScene; //rename to lastSeen ??
+  int pin;
 };
 
-//pirSensor sensors[] {
-//  {"diningroompir", 0, 0, 0}
-//};
+pirSensor pir_diningRoom = {MQTT_CLIENT_NAME"/diningroompir/state", 0, 0, 0, 4};
+pirSensor pir_mainHall = {MQTT_CLIENT_NAME"/mainhallpir/state", 0, 0, 0, 5};
+pirSensor pir_tvRoom = {MQTT_CLIENT_NAME"/tvroompir/state", 0, 0, 0, 6};
+pirSensor pir_upstairs = {MQTT_CLIENT_NAME"/upstairspir/state", 0, 0, 0, 7};
+pirSensor pir_basementHall = {MQTT_CLIENT_NAME"/basementhallpir/state", 0, 0, 0, 8};
+pirSensor pir_basementMain = {MQTT_CLIENT_NAME"/basementmainpir/state", 0, 0, 0, 9};
 
-pirSensor sensor = {MQTT_CLIENT_NAME"/diningroompir/state", 0, 0, 0};
-
+pirSensor sensors[6] {
+  pir_diningRoom, pir_mainHall, pir_tvRoom, pir_upstairs, pir_basementHall, pir_basementMain
+};
 
 WiFiClient wifiClient;
 PubSubClient pubSubClient(wifiClient);
 
 //Infrared sensors
-OneButton diningRoomPir(4, false, false);
-OneButton mainHallPir(4, false, false);
-OneButton tvRoomPir(4, false, false);
-OneButton upstairsHallPir(4, false, false);
-OneButton basementHallPir(4, false, false);
-OneButton basementMainPir(4, false, false);
+OneButton diningRoomPir(pir_diningRoom.pin, false, false);
+OneButton mainHallPir(pir_mainHall.pin, false, false);
+OneButton tvRoomPir(pir_tvRoom.pin, false, false);
+OneButton upstairsHallPir(sensors[3].pin, false, false);
+OneButton basementHallPir(pir_basementHall.pin, false, false);
+OneButton basementMainPir(pir_basementMain.pin, false, false);
 
 //contact closure sensors
 OneButton frontDoor(5, false, false);
 OneButton backDoor(5, false, false);
 OneButton sideDoor(5, false, false);
+
+// motion occurs
+// if timer running
+//   reset timer
+// if timer not running
+// send ALERT
+// start timer
+
+//timer expires
+// send CLEAR
+// clear timer
 
 void setup() {
   Serial.begin(115200);
@@ -70,6 +81,21 @@ void loop() {
   }
   pubSubClient.loop();
 
+  tickButons();
+  processSensors();
+}
+
+void processSensors() {
+  processSensor(pir_diningRoom);
+  processSensor(pir_mainHall);
+  processSensor(pir_tvRoom);
+  processSensor(pir_upstairs);
+  processSensor(pir_basementHall);
+  processSensor(pir_basementMain);
+}
+
+
+void tickButons() {
   diningRoomPir.tick();
   mainHallPir.tick();
   tvRoomPir.tick();
@@ -79,21 +105,18 @@ void loop() {
   frontDoor.tick();
   backDoor.tick();
   sideDoor.tick();
-
-
-  processSensor(sensor);
-
-
 }
 
-void processSensor(pirSensor sensor){
+void processSensor(pirSensor sensor) {
   unsigned long currentMillis = millis();
-  if (sensor.timerActive && currentMillis - sensor.sensorMillis >= motionInterval) {
-    Serial.println("clear");
+  if (sensor.timerActive && currentMillis - sensor.lastScene >= motionInterval) {
+    Serial.print(sensor.topic);
+    Serial.println(" clear");
     pubSubClient.publish(sensor.topic, "clear");
     sensor.timerActive = 0;
   }
 }
+
 void setupPinModes() {
   pinMode(4, INPUT);
   pinMode(5, INPUT);
@@ -107,25 +130,25 @@ void setupPinModes() {
 
 }
 
-// motion occurs
-// if timer running
-//   reset timer
-// if timer not running
-// send ALERT
-// start timer
-
-//timer expires
-// send CLEAR
-// clear timer
-
-
 void setupButtons() {
-  diningRoomPir.attachLongPressStart(diningRoomMotion);
-  mainHallPir.attachLongPressStart(mainHallMotion);
-  tvRoomPir.attachLongPressStart(tvRoomMotion);
-  upstairsHallPir.attachLongPressStart(upstairsHallMotion);
-  basementHallPir.attachLongPressStart(basementHallMotion);
-  basementMainPir.attachLongPressStart(basementMainMotion);
+  diningRoomPir.attachLongPressStart([]() {
+    motionDetected(sensors[0]);
+  });
+  mainHallPir.attachLongPressStart([]() {
+    motionDetected(sensors[1]);
+  });
+  tvRoomPir.attachLongPressStart([]() {
+    motionDetected(sensors[2]);
+  });
+  upstairsHallPir.attachLongPressStart([]() {
+    motionDetected(sensors[3]);
+  });
+  basementHallPir.attachLongPressStart([]() {
+    motionDetected(sensors[4]);
+  });
+  basementMainPir.attachLongPressStart([]() {
+    motionDetected(sensors[5]);
+  });
 
 
   frontDoor.attachLongPressStart([]() {
@@ -160,22 +183,18 @@ void publishClose(const char* topic) {
   pubSubClient.publish(topic, "closed");
 }
 
-void diningRoomMotion() {
-  sensor.sensorMillis = millis();
+void motionDetected(pirSensor sensor) {
+  sensor.lastScene = millis();
 
   //start timer, send alert
   if (sensor.timerActive == 0) {
     sensor.timerActive = 1;
+    Serial.print(sensor.topic);
     Serial.println("motion");
-    pubSubClient.publish(MQTT_CLIENT_NAME"/diningroompir/state", "motion");
+    pubSubClient.publish(sensor.topic, "motion");
   }
 }
 
-void mainHallMotion() {}
-void tvRoomMotion() {}
-void upstairsHallMotion() {}
-void basementHallMotion() {}
-void basementMainMotion() {}
 
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Message arrived [");
