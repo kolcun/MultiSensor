@@ -15,12 +15,27 @@ const char* ssid = WIFI_SSID;
 const char* password = WIFI_PASSWD;
 const char* overwatchTopic = MQTT_CLIENT_NAME"/overwatch";
 
-int timerActive = 0;
+//int timerActive = 0;
 const long motionInterval = 1000 * 5;
-int diningRoomPirState = 0;
-unsigned long diningRoomMillis = 0;
+//int diningRoomPirState = 0;
+//unsigned long diningRoomMillis = 0;
 
 char charPayload[50];
+
+
+struct pirSensor {
+  const char* topic;
+  int timerActive;
+  int pirState;
+  unsigned long sensorMillis; //rename to lastSeen ??
+};
+
+//pirSensor sensors[] {
+//  {"diningroompir", 0, 0, 0}
+//};
+
+pirSensor sensor = {MQTT_CLIENT_NAME"/diningroompir/state", 0, 0, 0};
+
 
 WiFiClient wifiClient;
 PubSubClient pubSubClient(wifiClient);
@@ -45,17 +60,7 @@ void setup() {
   setupOTA();
   setupMqtt();
   setupButtons();
-
-  pinMode(4, INPUT);
-  pinMode(5, INPUT);
-  pinMode(5, INPUT);
-  pinMode(5, INPUT);
-  pinMode(5, INPUT);
-  pinMode(5, INPUT);
-  pinMode(5, INPUT);
-  pinMode(5, INPUT);
-  pinMode(5, INPUT);
-
+  setupPinModes();
 }
 
 void loop() {
@@ -75,13 +80,30 @@ void loop() {
   backDoor.tick();
   sideDoor.tick();
 
-  unsigned long currentMillis = millis();
 
-  if (timerActive && currentMillis - diningRoomMillis >= motionInterval) {
+  processSensor(sensor);
+
+
+}
+
+void processSensor(pirSensor sensor){
+  unsigned long currentMillis = millis();
+  if (sensor.timerActive && currentMillis - sensor.sensorMillis >= motionInterval) {
     Serial.println("clear");
-    pubSubClient.publish(MQTT_CLIENT_NAME"/diningroompir/state", "clear");
-    timerActive = 0;
+    pubSubClient.publish(sensor.topic, "clear");
+    sensor.timerActive = 0;
   }
+}
+void setupPinModes() {
+  pinMode(4, INPUT);
+  pinMode(5, INPUT);
+  pinMode(5, INPUT);
+  pinMode(5, INPUT);
+  pinMode(5, INPUT);
+  pinMode(5, INPUT);
+  pinMode(5, INPUT);
+  pinMode(5, INPUT);
+  pinMode(5, INPUT);
 
 }
 
@@ -139,16 +161,13 @@ void publishClose(const char* topic) {
 }
 
 void diningRoomMotion() {
+  sensor.sensorMillis = millis();
 
-  if (timerActive == 0) {
-    //start timer, send alert
-    timerActive = 1;
+  //start timer, send alert
+  if (sensor.timerActive == 0) {
+    sensor.timerActive = 1;
     Serial.println("motion");
     pubSubClient.publish(MQTT_CLIENT_NAME"/diningroompir/state", "motion");
-    diningRoomMillis = millis();
-  } else {
-    //timer already running - reset it
-    diningRoomMillis = millis();
   }
 }
 
