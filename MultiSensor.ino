@@ -24,8 +24,19 @@ char charPayload[50];
 
 WiFiClient wifiClient;
 PubSubClient pubSubClient(wifiClient);
+
+//Infrared sensors
 OneButton diningRoomPir(4, false, false);
+OneButton mainHallPir(4, false, false);
+OneButton tvRoomPir(4, false, false);
+OneButton upstairsHallPir(4, false, false);
+OneButton basementHallPir(4, false, false);
+OneButton basementMainPir(4, false, false);
+
+//contact closure sensors
 OneButton frontDoor(5, false, false);
+OneButton backDoor(5, false, false);
+OneButton sideDoor(5, false, false);
 
 void setup() {
   Serial.begin(115200);
@@ -37,6 +48,14 @@ void setup() {
 
   pinMode(4, INPUT);
   pinMode(5, INPUT);
+  pinMode(5, INPUT);
+  pinMode(5, INPUT);
+  pinMode(5, INPUT);
+  pinMode(5, INPUT);
+  pinMode(5, INPUT);
+  pinMode(5, INPUT);
+  pinMode(5, INPUT);
+
 }
 
 void loop() {
@@ -47,10 +66,14 @@ void loop() {
   pubSubClient.loop();
 
   diningRoomPir.tick();
+  mainHallPir.tick();
+  tvRoomPir.tick();
+  upstairsHallPir.tick();
+  basementHallPir.tick();
+  basementMainPir.tick();
   frontDoor.tick();
-
-  //  Serial.println(digitalRead(4));
-  //  delay(500);
+  backDoor.tick();
+  sideDoor.tick();
 
   unsigned long currentMillis = millis();
 
@@ -76,18 +99,43 @@ void loop() {
 
 void setupButtons() {
   diningRoomPir.attachLongPressStart(diningRoomMotion);
-  frontDoor.attachLongPressStart(frontDoorOpen);
-  frontDoor.attachLongPressStop(frontDoorClose);
+  mainHallPir.attachLongPressStart(mainHallMotion);
+  tvRoomPir.attachLongPressStart(tvRoomMotion);
+  upstairsHallPir.attachLongPressStart(upstairsHallMotion);
+  basementHallPir.attachLongPressStart(basementHallMotion);
+  basementMainPir.attachLongPressStart(basementMainMotion);
+
+
+  frontDoor.attachLongPressStart([]() {
+    publishOpen(MQTT_CLIENT_NAME"/frontdoor/state");
+  });
+  frontDoor.attachLongPressStop([]() {
+    publishClose(MQTT_CLIENT_NAME"/frontdoor/state");
+  });
   frontDoor.setPressTicks(100);
+
+  backDoor.attachLongPressStart([]() {
+    publishOpen(MQTT_CLIENT_NAME"/backdoor/state");
+  });
+  backDoor.attachLongPressStop([]() {
+    publishClose(MQTT_CLIENT_NAME"/backdoor/state");
+  });
+  backDoor.setPressTicks(100);
+
+  sideDoor.attachLongPressStart([]() {
+    publishOpen(MQTT_CLIENT_NAME"/sidedoor/state");
+  });
+  sideDoor.attachLongPressStop([]() {
+    publishClose(MQTT_CLIENT_NAME"/sidedoor/state");
+  });
+  sideDoor.setPressTicks(100);
 }
 
-void frontDoorOpen(){
-  Serial.println("Front Door Open");
-  pubSubClient.publish(MQTT_CLIENT_NAME"/frontdoor/state", "open");
+void publishOpen(const char* topic) {
+  pubSubClient.publish(topic, "open");
 }
-void frontDoorClose(){
-  Serial.println("Front Door Close");
-  pubSubClient.publish(MQTT_CLIENT_NAME"/frontdoor/state", "closed");
+void publishClose(const char* topic) {
+  pubSubClient.publish(topic, "closed");
 }
 
 void diningRoomMotion() {
@@ -103,6 +151,12 @@ void diningRoomMotion() {
     diningRoomMillis = millis();
   }
 }
+
+void mainHallMotion() {}
+void tvRoomMotion() {}
+void upstairsHallMotion() {}
+void basementHallMotion() {}
+void basementMainMotion() {}
 
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Message arrived [");
