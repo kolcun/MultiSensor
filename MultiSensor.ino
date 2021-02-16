@@ -14,7 +14,7 @@
 const char* ssid = WIFI_SSID;
 const char* password = WIFI_PASSWD;
 const char* overwatchTopic = MQTT_CLIENT_NAME"/overwatch";
-const long motionInterval = 1000 * 5;
+const long motionInterval = 1000 * 240; //240 seconds
 
 char charPayload[50];
 
@@ -40,6 +40,18 @@ pirSensor *sensors[6] {
 WiFiClient wifiClient;
 PubSubClient pubSubClient(wifiClient);
 
+//Infrared Logic
+// motion occurs
+// if timer running
+//   reset timer
+// if timer not running
+//  send ALERT
+//  start timer
+
+//timer expires
+// send CLEAR
+// clear timer
+
 //Infrared sensors
 OneButton diningRoomPir(pir_diningRoom.pin, false, false);
 OneButton mainHallPir(pir_mainHall.pin, false, false);
@@ -53,16 +65,7 @@ OneButton frontDoor(17, false, false);
 OneButton backDoor(16, false, false);
 OneButton sideDoor(4, false, false);
 
-// motion occurs
-// if timer running
-//   reset timer
-// if timer not running
-// send ALERT
-// start timer
 
-//timer expires
-// send CLEAR
-// clear timer
 
 void setup() {
   Serial.begin(115200);
@@ -75,7 +78,7 @@ void setup() {
 }
 
 void loop() {
-  //  ArduinoOTA.handle();
+  ArduinoOTA.handle();
   if (!pubSubClient.connected()) {
     reconnect();
   }
@@ -83,7 +86,6 @@ void loop() {
 
   tickButons();
   processSensors();
-
 }
 
 void processSensors() {
@@ -128,7 +130,6 @@ void setupPinModes() {
   pinMode(17, INPUT_PULLUP);
   pinMode(16, INPUT_PULLUP);
   pinMode(4, INPUT_PULLUP);
-
 }
 
 void diningRoomMotionDetected() {
@@ -166,7 +167,6 @@ void setupButtons() {
     motionDetected(pir_basementMain);
   });
 
-
   frontDoor.attachLongPressStart([]() {
     Serial.println("front door open");
     publishOpen(MQTT_CLIENT_NAME"/frontdoor/state");
@@ -178,7 +178,7 @@ void setupButtons() {
   frontDoor.setPressTicks(100);
 
   backDoor.attachLongPressStart([]() {
-     Serial.println("back door open");
+    Serial.println("back door open");
     publishOpen(MQTT_CLIENT_NAME"/backdoor/state");
   });
   backDoor.attachLongPressStop([]() {
@@ -280,7 +280,7 @@ void setupOTA() {
 
 void setupMqtt() {
   pubSubClient.setServer(MQTT_SERVER, 1883);
-//  pubSubClient.setCallback(mqttCallback);
+  //  pubSubClient.setCallback(mqttCallback);
   if (!pubSubClient.connected()) {
     reconnect();
   }
