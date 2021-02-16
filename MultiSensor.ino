@@ -29,7 +29,7 @@ struct pirSensor {
 pirSensor pir_diningRoom = {MQTT_CLIENT_NAME"/diningroompir/state", 0, 0, 0, 23};
 pirSensor pir_mainHall = {MQTT_CLIENT_NAME"/mainhallpir/state", 0, 0, 0, 19};
 pirSensor pir_tvRoom = {MQTT_CLIENT_NAME"/tvroompir/state", 0, 0, 0, 18};
-pirSensor pir_upstairsHall = {MQTT_CLIENT_NAME"/upstairshallpir/state", 0, 0, 0, 34};
+pirSensor pir_upstairsHall = {MQTT_CLIENT_NAME"/upstairshallpir/state", 0, 0, 0, 25};
 pirSensor pir_basementHall = {MQTT_CLIENT_NAME"/basementhallpir/state", 0, 0, 0, 32};
 pirSensor pir_basementMain = {MQTT_CLIENT_NAME"/basementmainpir/state", 0, 0, 0, 33};
 
